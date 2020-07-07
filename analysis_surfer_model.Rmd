@@ -1,0 +1,492 @@
+---
+# IMPORTANT: Change settings here, but DO NOT change the spacing. 
+# Remove comments and add values where applicable. 
+# The descriptions below should be self-explanatory
+
+title: "Multi Surfer Model Analysis"
+always_allow_html: yes
+
+documentclass: "elsarticle"
+
+# Comment: ----- Follow this pattern for up to 5 authors
+# Author1: "Sean Soutar STRSEA001"  # First Author
+# Ref1: "UCT Statistics Honours, Cape Town, South Africa" # First Author's Affiliation
+# Email1: "sean.soutar\\@gmail.com" # First Author's Email address
+
+Author2: "Fabio Fehr FHRFAB001"
+Ref2: "UCT Statistics, Cape Town, South Africa"
+Email2: "FHRFAB001\\@myuct.ac.za"
+CommonAffiliation_12: FALSE # If Author 1 and 2 have a common affiliation. Works with _13, _23, etc.
+
+#Author3: "John Doe"
+#Email3: "JohnSmith\\@gmail.com"
+
+#CorrespAuthor_1: TRUE  # If corresponding author is author 3, e.g., use CorrespAuthor_3: TRUE
+# Use \\sep to separate
+keywords: "Simulation \\sep Netlogo \\sep Surfing" # Use \\sep to separate
+JELCodes: |
+
+# Comment: ----- Manage headers and footers:
+#BottomLFooter: $Title$
+#BottomCFooter:
+#TopLHeader: \leftmark # Adds section name at topleft. Remove comment to add it.
+BottomRFooter: "\\footnotesize Page \\thepage\\" # Add a '#' before this line to remove footer.
+addtoprule: TRUE
+addfootrule: TRUE               # Use if footers added. Add '#' to remove line.
+
+# Setting page margins:
+margin: 2.3 # Sides
+bottom: 2 # bottom
+top: 2.5 # Top
+
+HardSet: TRUE # Hard-set the spacing of words in your document. This will stop LaTeX squashong text to fit on pages, e.g. This is done by hard-setting the spacing dimensions. Set to FALSE if you want LaTeX to optimize this for your paper. 
+bibliography: Tex/ref.bib       # Do not edit: Keep this naming convention and location.
+RemovePreprintSubmittedTo: TRUE  # Removes the 'preprint submitted to...' at bottom of titlepage
+Journal: "Journal of Finance"   # Journal that the paper will be submitting to, if RemovePreprintSubmittedTo is set to TRUE.
+toc: no                         # Add a table of contents
+numbersections: yes             # Should sections (and thus figures and tables) be numbered?
+fontsize: 11pt                  # Set fontsize
+linestretch: 1.2                # Set distance between lines.
+link-citations: TRUE            # This creates dynamic links to the papers in reference list.
+output:
+  pdf_document:
+    keep_tex: TRUE
+    template: Tex/TexDefault.txt
+    fig_width: 3.5 # Adjust default figure sizes. This can also be done in the chunks of the text.
+    fig_height: 3.5
+    include:
+      in_header: Tex/packages.txt # Reference file with extra packages
+abstract: |
+
+---
+
+<!-- First: Set your default preferences for chunk options: -->
+
+<!-- If you want a chunk's code to be printed, set echo = TRUE. message = FALSE stops R printing ugly package loading details in your final paper too. I also suggest setting warning = FALSE and checking for warnings in R, else you might find ugly warnings in your paper. -->
+
+<!-- 
+1) Miktex2.9 - You need to copy the file of Miktex2.9 into your program files:
+2) devtools::install_version("rmarkdown", version = "1.8", repos = "http://cran.us.r-project.org") 
+- This makes sure youre using the correct form of markdown for the template
+3) Make sure you have Tex folder in your directory as it uses it in the PDF process.
+- God speed and goodluck to get it working.
+-->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE,message = FALSE,fig.align = 'center')
+
+library(pacman)
+p_load(tidyverse, cowplot,kableExtra)
+```
+
+# Introduction
+
+This report is purely an analysis of the Netlogo simulation `multi_surfer_model`, for further information on the model please read the info tab in Netlogo. This model was created to simulate single or multiple surfers temperature-energy trade off experienced when surfing cold point-break surf spots. This report shall use the `multi_surfer_model` to attempt to answer the question: 
+
+"Under what wave conditions result in surfers being able to surf for longer durations of time and improve their surfing?".
+
+The key factors that shall be measured are \textit{Number of Waves} which measures the number of waves a each surfer catches and \textit{Steps} which is a measure of duration. These were selected as the  more waves caught in a session greatly help improve a surfers ability. The overall duration of time spent in the water helps teach surfers intuition about the ocean, waves and other surfers. It also builds fitness over time. Surfers shall be assumed homogeneous and their attribute parameters shall not be considered for this analysis. Wave conditions that shall be considered are \textit{wave-decay-size}, \textit{wave-period} and \textit{wave-size} which measure the length of ride, frequency and size of the waves respectively. 
+
+# Methodology 
+
+A grid style search was used to test different wave condition parameters with 10 repetitions of each combination. Due to the random aspect of wave arrival and wave size there is a large amount of variation between the 10 repetitions, the median \textit{Number of Waves} and  \textit{Steps} shall be reported for each parameter combination as it is more robust.
+
+We shall start by considering a single surfer model and then consider when what happens when there are more than one surfer. In a multi surfer model surfers will slowly get too cold or tired resulting in the surfer paddling in to the beach. This in essence becomes a single surfer model over time. 
+
+We hypothesize that in the single and multi surfer models we would want a lower \textit{wave-period} as this will result in more waves being surfed. Also that \textit{wave-decay-size} to be low to allow surfers to surf right until the beach which in turn will keep them warm.
+
+## Single Surfer Model
+
+In a single surfer model we will only have surfer with the default surfer attributes. This will be seen as a base case as over time multi surfer models become single surfer models. 
+
+Figure \ref{ssplots} below shows 200 different wave condition parameter combinations each run 10 times and the median taken. Each parameter combinations median \textit{Number of Waves} and \textit{Steps} is plotted with the best in each case being highlighted in red. The parameters for these are reported in the plots below.
+
+```{r cleaning_function}
+
+# Get in in long data format 
+
+make_dataset <- function(dat,num_of_vars,total_iterations){
+  # Get environment variables
+  output <- as_data_frame(matrix(NA,ncol = 8+7,nrow = 1))
+  colnames(output) <- c(as.character(dat[1:8,1]),
+                        "steps",
+                        "number_of_waves",
+                        "number_of_duckdives",
+                        "currentwave-size",
+                        "time_sufing",
+                        "time_waiting",
+                        "time_paddling")
+  
+  for (i in 0:(total_iterations-1)){
+    index <- 2 + 6*i
+    new_dat <- dat[1:9,index] %>%
+      as.vector() %>%
+      as.numeric()
+    output <- rbind(output,new_dat)
+    output[i+2,10] <- dat[11,2 +i*6] %>% as.vector() %>% as.numeric()
+    output[i+2,11] <- dat[11,3+i*6] %>% as.vector() %>% as.numeric()
+    output[i+2,12] <- dat[11,4+i*6] %>% as.vector() %>% as.numeric()
+    output[i+2,13] <-dat[11,5+i*6]%>% as.vector() %>% as.numeric()
+    output[i+2,14] <-dat[11,6+i*6]%>% as.vector() %>% as.numeric()
+    output[i+2,15] <-dat[11,7+i*6]%>% as.vector() %>% as.numeric()
+  }
+  output <- output[2:NROW(output),]
+ 
+  return(output)
+}
+
+
+```
+
+
+```{r single_surfer}
+
+num_of_vars <- 6
+total_iterations <- 2000
+
+# dat <- read.table("Output/final_multi_surfer_model single_surfer.csv",header = T, sep = ",",skip = 6,quote = "\"", fill = T)
+
+# output <- make_dataset(dat, num_of_runs,total_iterations)
+# saveRDS(output,file = "Output/single_surfer_output.rds")
+output <- readRDS("Output/single_surfer_output.rds")
+
+```
+
+
+```{r median_means}
+
+
+meansteps_vec= NULL
+mediansteps_vec = NULL
+meannumber_of_waves_vec= NULL
+mediannumber_of_waves_vec = NULL
+
+tempsteps = NULL
+tempnumber_of_waves = NULL
+for(i in 1:NROW(output)){
+  if(i %% 10 != 0){
+    tempsteps = c(tempsteps, output$steps[i])
+    tempnumber_of_waves = c(tempnumber_of_waves, output$number_of_waves[i])
+  }
+  else{
+    tempsteps = c(tempsteps, output$steps[i])
+    tempnumber_of_waves = c(tempnumber_of_waves, output$number_of_waves[i])
+    
+    meansteps_vec = c(meansteps_vec, mean(tempsteps))
+    mediansteps_vec = c(mediansteps_vec, median(tempsteps))
+    meannumber_of_waves_vec= c(meannumber_of_waves_vec, mean(tempnumber_of_waves))
+    mediannumber_of_waves_vec = c(mediannumber_of_waves_vec, median(tempnumber_of_waves))
+    
+    tempsteps = NULL
+    tempnumber_of_waves = NULL
+  }
+  
+}
+
+
+
+```
+
+```{r ss_waves_plot}
+## Single surfer data frame median steps
+ss_median_waves <- data.frame(median_waves = mediannumber_of_waves_vec)
+
+ss_median_waves$highlight <- ifelse(ss_median_waves$median_waves == max(ss_median_waves$median_waves), 
+                                    "highlight", "normal")
+ss_waves_textdf <- ss_median_waves[ss_median_waves$median_waves == max(ss_median_waves$median_waves), ]
+ss_waves_mycolours <- c("highlight" = "red", "normal" = "blue")
+
+
+plot1 <- ggplot(ss_median_waves, aes(y =  median_waves,x= 1:NROW(ss_median_waves)))+
+  geom_point(aes(colour= highlight),alpha = .4, size = 3)+
+  scale_color_manual("Status", values = ss_waves_mycolours)+
+  geom_text(data = ss_waves_textdf, aes(x = as.numeric(rownames(ss_waves_textdf)) + 50, 
+    y = ss_waves_textdf$median_waves -3, label = "Wave-period = 60 \n Wave-size = 1 \n Wave-decay-size = 5"), size =3) +
+  theme_classic() +
+    theme(plot.title = element_text(hjust=0.5),legend.position = "none")+
+  labs(title="Median Number of Waves \n Single Surfer model") +
+    labs(x="Parameter Combination", y="Median Number of Waves")
+#index 25
+
+```
+
+```{r ss_steps_plot}
+
+# > output[241:250,] %>% apply(MARGIN = 2,FUN = median)
+## Single surfer data frame median steps
+ss_median_steps <- data.frame(median_steps = mediansteps_vec)
+
+ss_median_steps$highlight <- ifelse(ss_median_steps$median_steps == max(ss_median_steps$median_steps), 
+                                    "highlight", "normal")
+ss_steps_textdf <- ss_median_steps[ss_median_steps$median_steps == max(ss_median_steps$median_steps), ]
+ss_steps_mycolours <- c("highlight" = "red", "normal" = "blue")
+
+
+plot2 <- ggplot(ss_median_steps, aes(y =  median_steps,x= 1:NROW(ss_median_steps)))+
+  geom_point(aes(colour= highlight),alpha = .4, size = 3)+
+  scale_color_manual("Status", values = ss_steps_mycolours)+
+  geom_text(data = ss_steps_textdf, aes(x = as.numeric(rownames(ss_steps_textdf)) + 50, 
+    y = ss_steps_textdf$median_steps -300, label = "Wave-period = 120 \n Wave-size = 4 \n Wave-decay-size = 5"),size = 3) +
+  theme_classic() +
+    theme(plot.title = element_text(hjust=0.5),legend.position = "none")+
+  labs(title="Median Number of Steps \n Single Surfer model") +
+    labs(x="Parameter Combination", y="Median Number of Steps")
+#index 80
+
+```
+
+```{r ss_plots, fig.height= 3.5, fig.width=7, ,fig.cap= 'The parameter combination that corresponds the highest median number of waves caught is clear above the rest.  Notice the second largest Number of Steps is the same parameter combination as the largest Number of Waves. \\label{ssplots}'}
+
+gridExtra::grid.arrange(plot1, plot2,ncol = 2)
+
+```
+
+In Figure \ref{ssplots} above we notice that the second best Number of Steps is the same parameter combination as the largest Number of Waves. This suggests a good balance between number of waves caught and duration in the water for a single surfer model.
+
+## Multi-Surfer Model
+
+We will now consider a multi surfer model with 3 and 5 surfers in the water. Over time surfers who get cold or tired will get out leading to a single surfer model. A key difference between the models is when there are multiple surfers in the water each must obey priority. This means that only one surfer may surf at a time and they take turns waiting for their turns. This will have implications on the conditions required to maximise \textit{Number of Waves} and \textit{Steps}. We hypothesize that there will need to be a low \textit{wave-period} to accommodate all the surfers and stopping them from getting cold. Below in Figure \ref{ms3plots} we can see the median \textit{Number of Waves} and \textit{Steps} for a three surfer model.
+
+```{r multisurfer_output}
+num_of_vars <- 6
+total_iterations <- 6000
+
+# dat <- read.table("Output/final_multi_surfer_model multi_surfer_env.csv",header = T, sep = ",",skip = 6,quote = "\"", fill = T)
+# 
+# output <- make_dataset(dat, num_of_runs,total_iterations)
+# # output <- make_dataset(dat, num_of_runs,total_iterations)
+# saveRDS(output,file = "Output/multi_surfer_output.rds")
+output <- readRDS("Output/multi_surfer_output.rds")
+
+```
+
+
+```{r}
+
+output_3_surfers <- output %>% 
+  filter(`number-of-surfers` == 3)
+
+# 3 SURFER 
+
+meansteps_vec= NULL
+mediansteps_vec = NULL
+meannumber_of_waves_vec= NULL
+mediannumber_of_waves_vec = NULL
+
+tempsteps = NULL
+tempnumber_of_waves = NULL
+for(i in 1:NROW(output_3_surfers)){
+  if(i %% 10 != 0){
+    tempsteps = c(tempsteps, output_3_surfers$steps[i])
+    tempnumber_of_waves = c(tempnumber_of_waves, output_3_surfers$number_of_waves[i])
+  }
+  else{
+    tempsteps = c(tempsteps, output_3_surfers$steps[i])
+    tempnumber_of_waves = c(tempnumber_of_waves, output_3_surfers$number_of_waves[i])
+    
+    meansteps_vec = c(meansteps_vec, mean(tempsteps))
+    mediansteps_vec = c(mediansteps_vec, median(tempsteps))
+    meannumber_of_waves_vec= c(meannumber_of_waves_vec, mean(tempnumber_of_waves))
+    mediannumber_of_waves_vec = c(mediannumber_of_waves_vec, median(tempnumber_of_waves))
+    
+    tempsteps = NULL
+    tempnumber_of_waves = NULL
+  }
+  
+}
+```
+
+
+```{r 3_waves_plot}
+## Single surfer data frame median steps
+ms3_median_waves <- data.frame(median_waves = mediannumber_of_waves_vec)
+
+ms3_median_waves$highlight <- ifelse(ms3_median_waves$median_waves == max(ms3_median_waves$median_waves), 
+                                    "highlight", "normal")
+ms3_waves_textdf <- ms3_median_waves[ms3_median_waves$median_waves == max(ms3_median_waves$median_waves), ]
+ms3_waves_mycolours <- c("highlight" = "red", "normal" = "blue")
+
+
+plot3 <- ggplot(ms3_median_waves, aes(y =  median_waves,x= 1:NROW(ms3_median_waves)))+
+  geom_point(aes(colour= highlight),alpha = .4, size = 3)+
+  scale_color_manual("Status", values = ms3_waves_mycolours)+
+  geom_text(data = ms3_waves_textdf, aes(x = as.numeric(rownames(ms3_waves_textdf)) + 50, 
+    y = ms3_waves_textdf$median_waves -3, label = "Wave-period = 90 \n Wave-size = 3 \n Wave-decay-size = 5"), size =3) +
+  theme_classic() +
+    theme(plot.title = element_text(hjust=0.5),legend.position = "none")+
+  labs(title="Median Number of Waves \n Three Surfer model") +
+    labs(x="Parameter Combination", y="Median Number of Waves")
+
+# index 55
+
+```
+
+```{r 3_steps_plot}
+## Single surfer data frame median steps
+ms3_median_steps <- data.frame(median_steps = mediansteps_vec)
+
+ms3_median_steps$highlight <- ifelse(ms3_median_steps$median_steps == max(ms3_median_steps$median_steps), 
+                                    "highlight", "normal")
+ms3_steps_textdf <- ms3_median_steps[ms3_median_steps$median_steps == max(ms3_median_steps$median_steps), ]
+ms3_steps_mycolours <- c("highlight" = "red", "normal" = "blue")
+
+
+plot4 <- ggplot(ms3_median_steps, aes(y =  median_steps,x= 1:NROW(ms3_median_steps)))+
+  geom_point(aes(colour= highlight),alpha = .4, size = 3)+
+  scale_color_manual("Status", values = ms3_steps_mycolours)+
+  geom_text(data = ms3_steps_textdf, aes(x = as.numeric(rownames(ms3_steps_textdf)) + 50, 
+    y = ms3_steps_textdf$median_steps -300, label = "Wave-period = 90 \n Wave-size = 3 \n Wave-decay-size = 5"),size = 3) +
+  theme_classic() +
+    theme(plot.title = element_text(hjust=0.5),legend.position = "none")+
+  labs(title="Median Number of Steps \n Three Surfer model") +
+    labs(x="Parameter Combination", y="Median Number of Steps")
+
+# also 55
+```
+
+
+
+```{r ms3_plots, fig.height= 3.5, fig.width=7, ,fig.cap= 'The parameter combination that corresponds the highest median number of waves caught and median number of steps is the same. This optimal parameter set has larger wave size and longer gaps between waves measure by the wave period than the single surfer model. \\label{ms3plots}'}
+gridExtra::grid.arrange(plot3, plot4,ncol = 2)
+```
+
+The graphs show that when increasing the number of surfers to three, the optimal conditions change by having larger waves. This provides a thrill to the surfers making them warmer when surfing bigger waves, but colder when having to duckdive and paddle to the backline. This is paired with a large \textit{wave-decay-size} which suggests an easier paddle out as the waves fade before getting to the beach. We will now consider what the optimal wave condition parameters are for a five surfer model.
+
+```{r}
+
+output_5_surfers <- output %>% 
+  filter(`number-of-surfers` == 5)
+
+# 5 SURFER 
+
+meansteps_vec= NULL
+mediansteps_vec = NULL
+meannumber_of_waves_vec= NULL
+mediannumber_of_waves_vec = NULL
+
+tempsteps = NULL
+tempnumber_of_waves = NULL
+for(i in 1:NROW(output_5_surfers)){
+  if(i %% 10 != 0){
+    tempsteps = c(tempsteps, output_5_surfers$steps[i])
+    tempnumber_of_waves = c(tempnumber_of_waves, output_5_surfers$number_of_waves[i])
+  }
+  else{
+    tempsteps = c(tempsteps, output_5_surfers$steps[i])
+    tempnumber_of_waves = c(tempnumber_of_waves, output_5_surfers$number_of_waves[i])
+    
+    meansteps_vec = c(meansteps_vec, mean(tempsteps))
+    mediansteps_vec = c(mediansteps_vec, median(tempsteps))
+    meannumber_of_waves_vec= c(meannumber_of_waves_vec, mean(tempnumber_of_waves))
+    mediannumber_of_waves_vec = c(mediannumber_of_waves_vec, median(tempnumber_of_waves))
+    
+    tempsteps = NULL
+    tempnumber_of_waves = NULL
+  }
+  
+}
+
+```
+
+```{r 5_waves_plot}
+## Single surfer data frame median steps
+ms5_median_waves <- data.frame(median_waves = mediannumber_of_waves_vec)
+
+ms5_median_waves$highlight <- ifelse(ms5_median_waves$median_waves == max(ms5_median_waves$median_waves), 
+                                    "highlight", "normal")
+ms5_waves_textdf <- ms5_median_waves[ms5_median_waves$median_waves == max(ms5_median_waves$median_waves), ]
+ms5_waves_mycolours <- c("highlight" = "red", "normal" = "blue")
+
+
+plot5 <- ggplot(ms5_median_waves, aes(y =  median_waves,x= 1:NROW(ms5_median_waves)))+
+  geom_point(aes(colour= highlight),alpha = .4, size = 3)+
+  scale_color_manual("Status", values = ms5_waves_mycolours)+
+  geom_text(data = ms5_waves_textdf, aes(x = as.numeric(rownames(ms5_waves_textdf)) + 50, 
+    y = ms5_waves_textdf$median_waves -3, label = "Wave-period = 60 \n Wave-size = 3 \n Wave-decay-size = 5"), size =3) +
+  theme_classic() +
+    theme(plot.title = element_text(hjust=0.5),legend.position = "none")+
+  labs(title="Median Number of Waves \n Five Surfer model") +
+    labs(x="Parameter Combination", y="Median Number of Waves")
+
+# index 35
+# median steps only 1727
+
+# which(ms5_median_waves$median_waves == max(ms5_median_waves$median_waves))
+# which(ms5_median_steps$median_steps == max(ms5_median_steps$median_steps))
+
+```
+
+```{r 5_steps_plot}
+## Single surfer data frame median steps
+ms5_median_steps <- data.frame(median_steps = mediansteps_vec)
+
+ms5_median_steps$highlight <- ifelse(ms5_median_steps$median_steps == max(ms5_median_steps$median_steps), 
+                                    "highlight", "normal")
+ms5_steps_textdf <- ms5_median_steps[ms5_median_steps$median_steps == max(ms5_median_steps$median_steps), ]
+ms5_steps_mycolours <- c("highlight" = "red", "normal" = "blue")
+
+
+plot6 <- ggplot(ms5_median_steps, aes(y =  median_steps,x= 1:NROW(ms5_median_steps)))+
+  geom_point(aes(colour= highlight),alpha = .4, size = 3)+
+  scale_color_manual("Status", values = ms5_steps_mycolours)+
+  geom_text(data = ms5_steps_textdf, aes(x = as.numeric(rownames(ms5_steps_textdf)) + 50, 
+    y = ms5_steps_textdf$median_steps -300, label = "Wave-period = 150 \n Wave-size = 4 \n Wave-decay-size = 4"),size = 3) +
+  theme_classic() +
+    theme(plot.title = element_text(hjust=0.5),legend.position = "none")+
+  labs(title="Median Number of Steps \n Five Surfer model") +
+    labs(x="Parameter Combination", y="Median Number of Steps")
+
+# index 99
+
+# have a look at 73 second best
+# Wave-period = 120 \n Wave-size = 3 \n Wave-decay-size = 3"
+
+
+```
+
+```{r ms5_plots, fig.height= 3.5, fig.width=7, ,fig.cap= 'The parameter combination that corresponds the highest median number of waves caught is clear above the rest.  Notice the second largest Number of Steps is the same parameter combination as the largest Number of Waves. \\label{ms5plots}'}
+gridExtra::grid.arrange(plot5, plot6,ncol = 2)
+```
+
+In a five surfer model its important to remember that surfers have to wait their turn to catch waves in a priority system. This means the more surfers there are, the longer the wait is to get a wave. This would suggest we would want a low \textit{wave-period} which is seen in Figure \ref{ms5plots} median \textit{Number of Waves}. Interestingly the difference from this model to the previous models has made the \textit{wave-size} progressively larger when increasing the number of surfers but also the $\textit{wave-decay-size} = 5$ remaining unchanged.
+
+Now looking at the median \textit{Number of Steps} plot we notice that there are many points with similar optimal number of steps. The neighbouring second best wave conditions had a lower \textit{wave-period} and a lower \textit{wave-decay-size}. For this reason the parameters given for the optimal \textit{Number of Waves} make more sense.
+
+\newpage
+
+# Interpretation  
+
+In Table \ref{results} below we can see the parameters which resulted in the optimum \textit{Number of Waves} and \textit{Number of Steps}. We notice that the three surfer model had the longest \textit{Number of Steps} which is counter intuitive as more surfer would suggest a longer duration. As we get to the five surfer model we notice that between the five surfers only 73 waves we caught. This is roughly 15 waves per surfer which is far less a single surfer model. Also all surfer in the five surfer model only stay in the water as long if not shorter than a single surfer model. The \textit{wave-decay-size} is regularly at 5 which is the maximum. 
+
+```{r}
+results <- data.frame(num_of_surfers = c(1,1,3,3,5,5),
+                      wave_period = c(60,120,90,90,60,150),
+                      wave_size = c(1,4,3,3,3,4),
+                      wave_decay = c(5,5,5,5,5,4),
+                      median_num_of_waves = c(35.5,20.5,47,47,73,27),
+                      median_steps= c(3882,4540.5, 6163.5, 6163.5,4058.5,4897))
+colnams <- c("No. Surfers", "Wave-period", "Wave-size","Wave-decay-size", "Median No. waves","Median Steps")
+
+# ,col.names = colnms
+knitr::kable(results, caption = "Wave condition parameter results \\label{results}", col.names = colnams) %>% 
+kable_styling(bootstrap_options = "striped") %>% 
+  pack_rows("1 Surfer", 1, 2) %>% 
+  pack_rows("3 Surfers", 3, 4) %>% 
+  pack_rows("5 Surfers", 5, 6)
+
+```
+
+
+In the single surfer model we saw that the best set of parameters to optimise \textit{Number of Waves} and \textit{Steps} was $\textit{wave-period} = 60$ which is a low wave period as hypothesized. This makes sense as the waves will come frequently keeping the surfer warm. The $\textit{wave-decay-size} = 5$ suggesting the waves fade almost immediately, going against out hypothesis. This means that the surfer almost never rides a wave all the way to the beach but optimises the number of waves caught. This also makes it easier to get to the backline with less duckdiving. This is not ideal for optimising surfing improvement but rather time spent surfing should be considered. The $\textit{wave-size}= 1$ this suggests that the waves were small and easy to navigate getting to the backline. This makes sense as smaller waves are more manageable and promote improving surfing. The three surfer model's optimal parameters was the same for both maximising median \textit{Number of Waves} and \textit{Steps}. The $\textit{wave-period} = 90$ which was slightly less frequent than the single surfer model and goes against the hypothesis. Reasons for this could be that if waves come too frequently then surfers suffer when paddling out. While surfers wait their turn to surf the waves that pass could reduce their energy and temperature thus a higher wave period could be optimal. The five surfer model has steadily increasing \textit{wave-size} which makes sense as the thrill of surfing bigger waves means you don't mind more surfers and waiting. The \textit{wave-period} was higher than hypothesized.
+
+\newpage
+
+# Conclusion 
+
+Considering the question "Under what wave conditions result in surfers being able to surf for longer durations of time and improve their surfing?". 
+
+If you wish to maximise the duration in the water bring a few friends along (3 is a party, 5 is a crowd). The conditions which are optimal are medium sized waves that fade quickly and come fairly regularly. If you wish to maximise the number of waves you get to surf go out surfing alone, with small waves coming very frequently that fade. This will optimise you number of waves caught and help you improve.
+
+# Further research
+
+If this research was further explored one could consider exploring total time spent surfing instead of duration in ocean. This should change the optimal conditions to ones with lower \textit{wave-decay-size}. Individual surfers should be considered and not just overall values for all surfers. Fitness measures could be considered by measuring the time spent paddling. Look at info section in Netlogo for further details.
