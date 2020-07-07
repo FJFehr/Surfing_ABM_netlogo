@@ -1,8 +1,9 @@
 # Surfing_ABM_netlogo
 
-Masters in statistics
+Masters in Advanced Analytics: UCT
 
 Course: Simulation
+
 Project: Create an agent based model to solve problem of your interest
 
 This is repo contains a Netlogo Agent Based Model (ABM) for modeling the fatigue temperature trade off for surfing in the atlantic oceans of South Africa. This is followed by a Rmarkdown report of results.
